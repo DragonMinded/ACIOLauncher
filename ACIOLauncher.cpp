@@ -13,29 +13,35 @@
 /* Define to 1 to get verbose debugging */
 #define VERBOSE_DEBUG         0
 
-/* Define to 1 to enable card reader mode */
+/**
+ * Define to 1 to enable card reader mode, currently only works with
+ * slotted readers and will output card IDs with all 0's with wavepass
+ * hardware. If this is enabled, hitting the blank button will toggle
+ * card reader mode which allows for card IDs to be read off cards and
+ * displayed.
+ */
 #define CARD_READER_MODE      0
 
-/* Length without payload or checksum */
+/* Length of an ACIO packet without payload or checksum */
 #define HEADER_LENGTH         5
 
-/* Minimum packet length for header and checksum */
+/* Minimum packet length including header and checksum */
 #define MINIMUM_PACKET_LENGTH (HEADER_LENGTH + 1)
 
-/* SOM values */
+/* Start of Message */
 #define SOM                   0xAA
 
-/* Byte values */
+/* Location of various parts of the protocol */
 #define ID_LOCATION           0
 #define COMMAND_HIGH_LOCATION 1
 #define COMMAND_LOW_LOCATION  2
 #define LENGTH_HIGH_LOCATION  3
 #define LENGTH_LOW_LOCATION   4
 
-/* Card length */
+/* Length of the card ID in bytes */
 #define CARD_LENGTH           8
 
-/* Seconds to wait before giving up and booting */
+/* Seconds to wait for a selection before booting the default option */
 #define TIMEOUT_SECONDS       60
 
 typedef enum
@@ -61,10 +67,10 @@ typedef struct
 	char name[64];
 } launcher_program_t;
 
-/* Debug global which can be set via command line flags */
+/* Debug global which can be set via command line flag --debug */
 unsigned int debug = 0;
 
-/* Debug macros that are enabled via the flag */
+/* Debug macros that are enabled via the --debug flag */
 #define DEBUG_PRINTF(...) do { if(debug) { printf(__VA_ARGS__); } } while(0)
 #define DEBUG_PRINT_HEX(data, length) do { if(debug) { printHex(data, length); } } while(0)
 
@@ -512,20 +518,51 @@ int _tmain(int argc, _TCHAR* argv[])
         fprintf( stderr, "Missing ini file argument!\n" );
         return 1;
     }
+	if( argc > 3 )
+	{
+        fprintf( stderr, "Too many arguments specified!\n" );
+        return 1;
+    }
+	if( argc == 2 && wcscmp(argv[1], L"--debug") == 0)
+	{
+        fprintf( stderr, "Missing ini file argument!\n" );
+        return 1;
+    }
 
 	/* Optional arguments */
+	_TCHAR *inifile;
 	if( argc == 3 )
 	{
 		if (wcscmp(argv[2], L"--debug") == 0)
 		{
-			printf( "Enabling debug mode!\n" );
+			inifile = argv[1];
 			debug = 1;
 		}
+		else if (wcscmp(argv[1], L"--debug") == 0)
+		{
+			inifile = argv[2];
+			debug = 1;
+		}
+		else
+		{
+			fprintf( stderr, "Too many arguments specified!\n" );
+			return 1;
+		}
+	}
+	else
+	{
+		inifile = argv[1];
+	}
+
+	/* Display if we're debugging */
+	if( debug )
+	{
+		printf( "Enabling debug mode!\n" );
 	}
 
 	/* Read settings */
 	unsigned int num_programs = 0;
-	launcher_program_t *settings = LoadSettings( argv[1], &num_programs );
+	launcher_program_t *settings = LoadSettings( inifile, &num_programs );
 
 	if( num_programs < 1 )
 	{
