@@ -10,6 +10,9 @@
 #define MAX_GAME_NAME_LENGTH 63
 #define MAX_GAME_LOCATION_LENGTH 511
 
+/* Number of games to display on one screen */
+#define GAMES_PER_PAGE 9
+
 typedef struct
 {
 	char location[MAX_GAME_LOCATION_LENGTH + 1];
@@ -28,6 +31,8 @@ class Menu
 		void DisplayPrompt();
 		void DisplayGames();
 		bool SelectGame(unsigned int game);
+		void PageUp();
+		void PageDown();
 
 		void Tick();
 		void ResetTimeout();

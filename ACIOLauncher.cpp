@@ -610,6 +610,14 @@ int _tmain(int argc, _TCHAR* argv[])
 			{
 				game = 9;
 			}
+			if (keypresses & 0x0001 )
+			{
+				menu.PageUp();
+			}
+			if (keypresses & 0x0010 )
+			{
+				menu.PageDown();
+			}
 
 			if (game != 0)
 			{

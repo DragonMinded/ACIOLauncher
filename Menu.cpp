@@ -10,7 +10,7 @@ Menu::Menu(_TCHAR *inifile)
 
 	/* Set up pagination */
 	start = 0;
-	end = num_programs < 9 ? num_programs : 9;
+	end = num_programs < GAMES_PER_PAGE ? num_programs : GAMES_PER_PAGE;
 	selected = 0;
 
 	/* For exiting on defaults */
@@ -24,6 +24,7 @@ Menu::~Menu(void)
 void Menu::DisplayPrompt()
 {
 	/* Prompt the user */
+    system("cls");
     printf( "Make a selection on the reader to boot a game.\n" );
 	printf( "%s will boot in %d seconds.\n\n", settings[0].name, TIMEOUT_SECONDS );
 }
@@ -32,7 +33,50 @@ void Menu::DisplayGames()
 {
 	for (unsigned int i = start; i < end; i++)
 	{
-		printf( "[%d] %s\n", i + 1, settings[i].name );
+		printf( "[%d]  %s\n", (i - start) + 1, settings[i].name );
+	}
+
+	printf( "\n" );
+
+	if (start > 0)
+	{
+		printf( "[0]  Previous Page\n" );
+	}
+
+	if (end < num_programs)
+	{
+		printf( "[00] Next Page\n" );
+	}
+}
+
+void Menu::PageDown()
+{
+	if (end < num_programs)
+	{
+		/* Move up one page */
+		start = start + GAMES_PER_PAGE;
+		end = start + GAMES_PER_PAGE;
+		end = end >= num_programs ? num_programs : end;
+
+		/* print games */
+		DisplayPrompt();
+		DisplayGames();
+	}
+}
+
+void Menu::PageUp()
+{
+	if (start > 0)
+	{
+		/* Move up one page */
+		start = start - GAMES_PER_PAGE;
+		start = start < 0 ? 0 : start;
+		end = start + GAMES_PER_PAGE;
+		end = end >= num_programs ? num_programs : end;
+
+		/* print games */
+		DisplayPrompt();
+		DisplayGames();
 	}
 }
 
