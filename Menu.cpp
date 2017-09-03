@@ -15,10 +15,24 @@ Menu::Menu(_TCHAR *inifile)
 
 	/* For exiting on defaults */
 	ftime(&beginning);
+
+	/* No cursor please! */
+	HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_CURSOR_INFO cursorInfo;
+
+    GetConsoleCursorInfo(out, &cursorInfo);
+    cursorInfo.bVisible = false;
+    SetConsoleCursorInfo(out, &cursorInfo);
 }
 
 Menu::~Menu(void)
 {
+	HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_CURSOR_INFO cursorInfo;
+
+    GetConsoleCursorInfo(out, &cursorInfo);
+    cursorInfo.bVisible = true;
+    SetConsoleCursorInfo(out, &cursorInfo);
 }
 
 void Menu::DisplayPrompt()
