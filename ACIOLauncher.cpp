@@ -585,7 +585,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		/* Try next reaer */
 		which = (which + 1) % 4;
-		DEBUG_PRINTF("Attempting to probe readers on %ls\n", comport[which]);
+		DEBUG_PRINTF("Attempting to probe readers on %ls,57600\n", comport[which]);
 		serial = OpenSerial( comport[which], 57600 );
 
 		if (serial == INVALID_HANDLE_VALUE)
@@ -606,13 +606,23 @@ int _tmain(int argc, _TCHAR* argv[])
 			DEBUG_PRINTF("Succeeded in probing readers!\n");
 			break;
 		}
-		/* Init */
-		if( !probeReader( serial ) )
+
+		/* Perhaps they need to be opened in 9600 baud instead (slotted readers) */
+		CloseHandle( serial );
+		DEBUG_PRINTF("Attempting to probe readers on %ls,9600\n", comport[which]);
+		serial = OpenSerial( comport[which], 9600 );
+
+		if (serial == INVALID_HANDLE_VALUE)
 		{
-			/* Init success! */
-			DEBUG_PRINTF("Succeeded in probing readers!\n");
-			break;
+			DEBUG_PRINTF("Couldn't open com port!\n");
+			serial = NULL;
+			LONGWAIT();
+			continue;
 		}
+
+		/* Ensure we start fresh */
+		PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
+
 		/* Init */
 		if( !probeReader( serial ) )
 		{
