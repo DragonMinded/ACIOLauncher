@@ -514,66 +514,8 @@ launcher_program_t *LoadSettings( _TCHAR *ini_file, unsigned int *final_length )
 	return progs;
 }
 
-int _tmain(int argc, _TCHAR* argv[])
+HANDLE InitReaders()
 {
-    /* Ensure command is good */
-    if( argc < 2 )
-    {
-        fprintf( stderr, "Missing ini file argument!\n" );
-        return 1;
-    }
-	if( argc > 3 )
-	{
-        fprintf( stderr, "Too many arguments specified!\n" );
-        return 1;
-    }
-	if( argc == 2 && wcscmp(argv[1], L"--debug") == 0)
-	{
-        fprintf( stderr, "Missing ini file argument!\n" );
-        return 1;
-    }
-
-	/* Optional arguments */
-	_TCHAR *inifile;
-	if( argc == 3 )
-	{
-		if (wcscmp(argv[2], L"--debug") == 0)
-		{
-			inifile = argv[1];
-			debug = 1;
-		}
-		else if (wcscmp(argv[1], L"--debug") == 0)
-		{
-			inifile = argv[2];
-			debug = 1;
-		}
-		else
-		{
-			fprintf( stderr, "Too many arguments specified!\n" );
-			return 1;
-		}
-	}
-	else
-	{
-		inifile = argv[1];
-	}
-
-	/* Display if we're debugging */
-	if( debug )
-	{
-		printf( "Enabling debug mode!\n" );
-	}
-
-	/* Read settings */
-	unsigned int num_programs = 0;
-	launcher_program_t *settings = LoadSettings( inifile, &num_programs );
-
-	if( num_programs < 1 )
-	{
-		fprintf( stderr, "No games configured to launch!\n" );
-		return 1;
-	}
-
 	/* Walk serial chain, finding readers */
     HANDLE serial = NULL;
 	const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
@@ -637,6 +579,72 @@ int _tmain(int argc, _TCHAR* argv[])
 		serial = NULL;
 		LONGWAIT();
 	}
+
+	return serial;
+}
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+    /* Ensure command is good */
+    if( argc < 2 )
+    {
+        fprintf( stderr, "Missing ini file argument!\n" );
+        return 1;
+    }
+	if( argc > 3 )
+	{
+        fprintf( stderr, "Too many arguments specified!\n" );
+        return 1;
+    }
+	if( argc == 2 && wcscmp(argv[1], L"--debug") == 0)
+	{
+        fprintf( stderr, "Missing ini file argument!\n" );
+        return 1;
+    }
+
+	/* Optional arguments */
+	_TCHAR *inifile;
+	if( argc == 3 )
+	{
+		if (wcscmp(argv[2], L"--debug") == 0)
+		{
+			inifile = argv[1];
+			debug = 1;
+		}
+		else if (wcscmp(argv[1], L"--debug") == 0)
+		{
+			inifile = argv[2];
+			debug = 1;
+		}
+		else
+		{
+			fprintf( stderr, "Too many arguments specified!\n" );
+			return 1;
+		}
+	}
+	else
+	{
+		inifile = argv[1];
+	}
+
+	/* Display if we're debugging */
+	if( debug )
+	{
+		printf( "Enabling debug mode!\n" );
+	}
+
+	/* Read settings */
+	unsigned int num_programs = 0;
+	launcher_program_t *settings = LoadSettings( inifile, &num_programs );
+
+	if( num_programs < 1 )
+	{
+		fprintf( stderr, "No games configured to launch!\n" );
+		return 1;
+	}
+
+	/* Walk serial chain, finding readers */
+    HANDLE serial = InitReaders();
 
     /* Get count */
     int count = getReaderCount( serial );
