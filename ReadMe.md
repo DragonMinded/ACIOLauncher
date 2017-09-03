@@ -19,7 +19,7 @@ launch=D:\RAData\contents\gamestart.bat
 launch=D:\Sirius\contents\gamestart.bat
 ```
 
-To corretly execute the built code, run the executable with one parameter specifying the location of the INI file. Optionally, you can add the `--debug` attribute for additional debugging. An example invocation is as follows.
+To correctly execute the built code, run the executable with one parameter specifying the location of the INI file. Optionally, you can add the `--debug` attribute for additional debugging. An example invocation is as follows:
 
 ```
 ACIOLauncher.exe games.ini
