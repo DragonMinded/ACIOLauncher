@@ -61,10 +61,14 @@ typedef enum
     STATE_EJECT,
 } reader_state_t;
 
+/* Constants for limitations on how long INI file pieces can be */
+#define MAX_GAME_NAME_LENGTH 63
+#define MAX_GAME_LOCATION_LENGTH 511
+
 typedef struct
 {
-	char location[512];
-	char name[64];
+	char location[MAX_GAME_LOCATION_LENGTH + 1];
+	char name[MAX_GAME_NAME_LENGTH + 1];
 } launcher_program_t;
 
 /* Debug global which can be set via command line flag --debug */
@@ -458,7 +462,7 @@ launcher_program_t *LoadSettings( _TCHAR *ini_file, unsigned int *final_length )
 				char *game = buffer + 1;
 
 				/* Copy this into temp structure */
-				strcpy( temp.name, game );
+				strcpy_s( temp.name, MAX_GAME_NAME_LENGTH, game );
 				got_name = 1;
 			}
 			else
@@ -480,7 +484,7 @@ launcher_program_t *LoadSettings( _TCHAR *ini_file, unsigned int *final_length )
 								if( got_name == 1 )
 								{
 									/* We have a name to associate with this */
-									strcpy( temp.location, launch );
+									strcpy_s( temp.location, MAX_GAME_LOCATION_LENGTH, launch );
 									got_name = 0;
 
 									/* Make a new spot for this, copy in */
