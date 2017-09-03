@@ -41,6 +41,9 @@
 /* Length of the card ID in bytes */
 #define CARD_LENGTH           8
 
+/* Number of times to try initializing a reader by sending baud probe */
+#define INITIALIZATION_TRIES  16
+
 typedef enum
 {
     STATE_FRONT_SENSOR,
@@ -197,15 +200,12 @@ int probeReader( HANDLE serial )
     unsigned char data[1024];
     DWORD length;
 
-	for (int i = 0; i < 16; i++)
-	{
-		WriteFile( serial, packet_probe, sizeof( packet_probe ), &length, 0 );
-		ReadFile( serial, data, sizeof( data ), &length, 0 );
+	WriteFile( serial, packet_probe, sizeof( packet_probe ), &length, 0 );
+	ReadFile( serial, data, sizeof( data ), &length, 0 );
 
-		if( length == sizeof( packet_probe ) )
-		{
-			return 0;
-		}
+	if( length == sizeof( packet_probe ) )
+	{
+		return 0;
 	}
 
     return 1;
@@ -391,12 +391,24 @@ HANDLE InitReaders()
 	/* Walk serial chain, finding readers */
     HANDLE serial = NULL;
 	const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
+	const char pattern[4] = { '/', '-', '\\', '|' };
 	unsigned int which = 3;
+	unsigned int pno = 0;
+
+	/* Put a space into location where we will be backspacing, for laziness */
+	if (!debug)
+	{
+		printf( "  " );
+	}
 
 	/* Try to open the reader indefinitely */
-	printf( "Initializing readers...\n" );
 	while( 1 )
 	{
+		if (!debug)
+		{
+			printf( "\b%c", pattern[(pno++) % 4] );
+		}
+
 		/* Try next reaer */
 		which = (which + 1) % 4;
 		DEBUG_PRINTF("Attempting to probe readers on %ls,57600\n", comport[which]);
@@ -414,15 +426,29 @@ HANDLE InitReaders()
 		PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
 
 		/* Init */
-		if( !probeReader( serial ) )
+		for (int i = 0; i < INITIALIZATION_TRIES; i++)
 		{
-			/* Init success! */
-			DEBUG_PRINTF("Succeeded in probing readers!\n");
-			break;
+			if( !probeReader( serial ) )
+			{
+				/* Init success! */
+				DEBUG_PRINTF("Succeeded in probing readers!\n");
+				return serial;
+			}
+
+			if (!debug)
+			{
+				printf( "\b%c", pattern[(pno++) % 4] );
+			}
 		}
 
 		/* Perhaps they need to be opened in 9600 baud instead (slotted readers) */
 		CloseHandle( serial );
+
+		if (!debug)
+		{
+			printf( "\b%c", pattern[(pno++) % 4] );
+		}
+
 		DEBUG_PRINTF("Attempting to probe readers on %ls,9600\n", comport[which]);
 		serial = OpenSerial( comport[which], 9600 );
 
@@ -438,11 +464,19 @@ HANDLE InitReaders()
 		PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
 
 		/* Init */
-		if( !probeReader( serial ) )
+		for (int i = 0; i < INITIALIZATION_TRIES; i++)
 		{
-			/* Init success! */
-			DEBUG_PRINTF("Succeeded in probing readers!\n");
-			break;
+			if( !probeReader( serial ) )
+			{
+				/* Init success! */
+				DEBUG_PRINTF("Succeeded in probing readers!\n");
+				return serial;
+			}
+
+			if (!debug)
+			{
+				printf( "\b%c", pattern[(pno++) % 4] );
+			}
 		}
 		
 		/* Failed, close */
@@ -451,8 +485,6 @@ HANDLE InitReaders()
 		serial = NULL;
 		LONGWAIT();
 	}
-
-	return serial;
 }
 
 int _tmain(int argc, _TCHAR* argv[])
@@ -515,7 +547,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	/* Walk serial chain, finding readers */
+	printf( "Initializing readers..." );
     HANDLE serial = InitReaders();
+	printf( "\n" );
 
     /* Get count */
     int count = getReaderCount( serial );
