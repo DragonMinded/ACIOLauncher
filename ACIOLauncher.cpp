@@ -391,14 +391,14 @@ HANDLE InitReaders()
 	/* Walk serial chain, finding readers */
     HANDLE serial = NULL;
 	const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
-	const char pattern[4] = { '/', '-', '\\', '|' };
+	const char *pattern[4] = { "\b\b\b   ", "\b\b\b.", ".", "." };
 	unsigned int which = 3;
 	unsigned int pno = 0;
 
 	/* Put a space into location where we will be backspacing, for laziness */
 	if (!debug)
 	{
-		printf( "  " );
+		printf( "   " );
 	}
 
 	/* Try to open the reader indefinitely */
@@ -406,7 +406,7 @@ HANDLE InitReaders()
 	{
 		if (!debug)
 		{
-			printf( "\b%c", pattern[(pno++) % 4] );
+			printf( "%s", pattern[(pno++) % 4] );
 		}
 
 		/* Try next reaer */
@@ -437,7 +437,7 @@ HANDLE InitReaders()
 
 			if (!debug)
 			{
-				printf( "\b%c", pattern[(pno++) % 4] );
+				printf( "%s", pattern[(pno++) % 4] );
 			}
 		}
 
@@ -446,7 +446,7 @@ HANDLE InitReaders()
 
 		if (!debug)
 		{
-			printf( "\b%c", pattern[(pno++) % 4] );
+			printf( "%s", pattern[(pno++) % 4] );
 		}
 
 		DEBUG_PRINTF("Attempting to probe readers on %ls,9600\n", comport[which]);
@@ -475,7 +475,7 @@ HANDLE InitReaders()
 
 			if (!debug)
 			{
-				printf( "\b%c", pattern[(pno++) % 4] );
+				printf( "%s", pattern[(pno++) % 4] );
 			}
 		}
 		
@@ -547,7 +547,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	/* Walk serial chain, finding readers */
-	printf( "Initializing readers..." );
+	printf( "Initializing readers" );
     HANDLE serial = InitReaders();
 	printf( "\n" );
 
