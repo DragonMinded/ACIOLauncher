@@ -580,6 +580,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	char *path = NULL;
 	bool selected = false;
 
+	/* It may have taken a long time to init */
+	menu.ResetTimeout();
+
 	/* Display user prompts */
 	menu.DisplayPrompt();
 	menu.DisplayGames();
