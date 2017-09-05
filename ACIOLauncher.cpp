@@ -203,15 +203,31 @@ int probeReader( HANDLE serial )
 	WriteFile( serial, packet_probe, sizeof( packet_probe ), &length, 0 );
 	ReadFile( serial, data, sizeof( data ), &length, 0 );
 
-	if( length == sizeof( packet_probe ) )
+	if (length < sizeof(packet_probe))
 	{
 		return 0;
 	}
 
-    return 1;
+	for (unsigned int i = 0; i < length; i++)
+	{
+		if (data[i] != 0xAA)
+		{
+			return 0;
+		}
+	}
+
+	/* Clear out any additional init the reader sends */
+	while (true)
+	{
+		ReadFile( serial, data, sizeof( data ), &length, 0 );
+		if (length == 0)
+		{
+			return 1;
+		}
+	}
 }
 
-int getReaderCount( HANDLE serial )
+unsigned int getReaderCount( HANDLE serial )
 {
     const unsigned char count_probe[] = { 0xAA, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, };
     unsigned char data[1024];
@@ -386,11 +402,12 @@ void requestCardId( HANDLE serial, unsigned int id )
     ReadFile( serial, data, sizeof( data ), &length, 0 );
 }
 
-HANDLE InitReaders()
+HANDLE InitReaders(unsigned int &readerCount)
 {
 	/* Walk serial chain, finding readers */
     HANDLE serial = NULL;
 	const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
+	const unsigned int baudrate[2] = { 57600, 9600 };
 	const char *pattern[4] = { "\b\b\b   ", "\b\b\b.", ".", "." };
 	unsigned int which = 3;
 	unsigned int pno = 0;
@@ -400,88 +417,65 @@ HANDLE InitReaders()
 	{
 		printf( "   " );
 	}
+	else
+	{
+		printf( "...\n" );
+	}
 
 	/* Try to open the reader indefinitely */
 	while( 1 )
 	{
-		if (!debug)
-		{
-			printf( "%s", pattern[(pno++) % 4] );
-		}
-
-		/* Try next reaer */
+		/* Try next reader */
 		which = (which + 1) % 4;
-		DEBUG_PRINTF("Attempting to probe readers on %ls,57600\n", comport[which]);
-		serial = OpenSerial( comport[which], 57600 );
 
-		if (serial == INVALID_HANDLE_VALUE)
+		for (unsigned int baud = 0; baud < 2; baud++)
 		{
-			DEBUG_PRINTF("Couldn't open com port!\n");
-			serial = NULL;
-			LONGWAIT();
-			continue;
-		}
-
-		/* Ensure we start fresh */
-		PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
-
-		/* Init */
-		for (int i = 0; i < INITIALIZATION_TRIES; i++)
-		{
-			if( !probeReader( serial ) )
-			{
-				/* Init success! */
-				DEBUG_PRINTF("Succeeded in probing readers!\n");
-				return serial;
-			}
-
 			if (!debug)
 			{
 				printf( "%s", pattern[(pno++) % 4] );
 			}
-		}
 
-		/* Perhaps they need to be opened in 9600 baud instead (slotted readers) */
-		CloseHandle( serial );
+			DEBUG_PRINTF("Attempting to probe readers on %ls,%d\n", comport[which], baudrate[baud]);
+			serial = OpenSerial( comport[which], baudrate[baud] );
 
-		if (!debug)
-		{
-			printf( "%s", pattern[(pno++) % 4] );
-		}
-
-		DEBUG_PRINTF("Attempting to probe readers on %ls,9600\n", comport[which]);
-		serial = OpenSerial( comport[which], 9600 );
-
-		if (serial == INVALID_HANDLE_VALUE)
-		{
-			DEBUG_PRINTF("Couldn't open com port!\n");
-			serial = NULL;
-			LONGWAIT();
-			continue;
-		}
-
-		/* Ensure we start fresh */
-		PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
-
-		/* Init */
-		for (int i = 0; i < INITIALIZATION_TRIES; i++)
-		{
-			if( !probeReader( serial ) )
+			if (serial == INVALID_HANDLE_VALUE)
 			{
-				/* Init success! */
-				DEBUG_PRINTF("Succeeded in probing readers!\n");
-				return serial;
+				DEBUG_PRINTF("Couldn't open com port!\n");
+				serial = NULL;
+				LONGWAIT();
+				continue;
 			}
 
-			if (!debug)
+			/* Ensure we start fresh */
+			PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
+
+			/* Init */
+			for (int i = 0; i < INITIALIZATION_TRIES; i++)
 			{
-				printf( "%s", pattern[(pno++) % 4] );
+				if( probeReader( serial ) )
+				{
+					/* Get count */
+					unsigned int count = getReaderCount( serial );
+					if (count > 0)
+					{
+						DEBUG_PRINTF( "Saw %d readers!\n", count );
+						readerCount = count;
+						return serial;
+					}
+				}
+
+				if (!debug)
+				{
+					printf( "%s", pattern[(pno++) % 4] );
+				}
 			}
+
+			/* Failed, close */
+			CloseHandle( serial );
 		}
-		
-		/* Failed, close */
+
+		/* Failed to probe this port, try again on next one */
 		DEBUG_PRINTF("Failed to probe readers!\n");
-		CloseHandle( serial );
 		serial = NULL;
 		LONGWAIT();
 	}
@@ -547,16 +541,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	/* Walk serial chain, finding readers */
+    unsigned int count = 0;
 	printf( "Initializing readers" );
-    HANDLE serial = InitReaders();
+    HANDLE serial = InitReaders(count);
 	printf( "\n" );
 
-    /* Get count */
-    int count = getReaderCount( serial );
-	DEBUG_PRINTF( "Saw %d readers!\n", count );
-
     /* Get version of all readers */
-    for( int x = 0; x < count; x++ )
+    for( unsigned int x = 0; x < count; x++ )
     {
 		/* Print out reader version in debug mode */
 		DEBUG_PRINTF( "Reader %d returned version %s\n", x + 1, getReaderVersion( serial, x ) );
@@ -599,7 +590,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			break;
 		}
 
-        for( int x = 0; x < count; x++ )
+        for( unsigned int x = 0; x < count; x++ )
         {
 			unsigned int game = 0;
             unsigned int currentpresses;
@@ -675,7 +666,7 @@ int _tmain(int argc, _TCHAR* argv[])
 				if (!read)
 				{
 					printf( "Entering card read mode, insert card!\n" );
-					for( int y = 0; y < count; y++ )
+					for( unsigned int y = 0; y < count; y++ )
 					{
 						setReaderState( serial, y, STATE_EJECT );
 						setReaderState( serial, y, STATE_NOT_READY );
@@ -687,7 +678,7 @@ int _tmain(int argc, _TCHAR* argv[])
 				else
 				{
 					printf( "Entering menu mode!\n" );
-					for( int y = 0; y < count; y++ )
+					for( unsigned int y = 0; y < count; y++ )
 					{
 						setReaderState( serial, y, STATE_EJECT );
 						setReaderState( serial, y, STATE_NOT_READY );
@@ -735,7 +726,7 @@ int _tmain(int argc, _TCHAR* argv[])
     }
 
 	/* Close the reader so we can let the game talk to it */
-	for( int y = 0; y < count; y++ )
+	for( unsigned int y = 0; y < count; y++ )
 	{
 		setReaderState( serial, y, STATE_EJECT );
 		setReaderState( serial, y, STATE_NOT_READY );
