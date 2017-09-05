@@ -22,7 +22,7 @@ typedef struct
 class Menu
 {
 	public:
-		Menu(_TCHAR *inifile);
+		Menu(_TCHAR *inifile, bool isDebugEnabled);
 		~Menu(void);
 
 		unsigned int NumberOfEntries() { return num_programs; }
@@ -38,6 +38,7 @@ class Menu
 		void ResetTimeout();
 		bool ShouldBootDefault();
 	private:
+		bool debug;
 		unsigned int num_programs;
 		unsigned int start;
 		unsigned int end;

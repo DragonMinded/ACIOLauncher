@@ -62,11 +62,14 @@ typedef enum
 } reader_state_t;
 
 /* Debug global which can be set via command line flag --debug */
-unsigned int debug = 0;
+bool debug = false;
 
 /* Debug macros that are enabled via the --debug flag */
 #define DEBUG_PRINTF(...) do { if(debug) { printf(__VA_ARGS__); } } while(0)
 #define DEBUG_PRINT_HEX(data, length) do { if(debug) { printHex(data, length); } } while(0)
+
+/* Macros that are enabled when debug is not enabled */
+#define NON_DEBUG_PRINTF(...) do { if(!debug) { printf(__VA_ARGS__); } } while(0)
 
 void printHex(const unsigned char * const data, int length )
 {
@@ -413,14 +416,8 @@ HANDLE InitReaders(unsigned int &readerCount)
 	unsigned int pno = 0;
 
 	/* Put a space into location where we will be backspacing, for laziness */
-	if (!debug)
-	{
-		printf( "   " );
-	}
-	else
-	{
-		printf( "...\n" );
-	}
+	NON_DEBUG_PRINTF( "   " );
+	DEBUG_PRINTF( "...\n" );
 
 	/* Try to open the reader indefinitely */
 	while( 1 )
@@ -430,11 +427,7 @@ HANDLE InitReaders(unsigned int &readerCount)
 
 		for (unsigned int baud = 0; baud < 2; baud++)
 		{
-			if (!debug)
-			{
-				printf( "%s", pattern[(pno++) % 4] );
-			}
-
+			NON_DEBUG_PRINTF( "%s", pattern[(pno++) % 4] );
 			DEBUG_PRINTF("Attempting to probe readers on %ls,%d\n", comport[which], baudrate[baud]);
 			serial = OpenSerial( comport[which], baudrate[baud] );
 
@@ -464,10 +457,7 @@ HANDLE InitReaders(unsigned int &readerCount)
 					}
 				}
 
-				if (!debug)
-				{
-					printf( "%s", pattern[(pno++) % 4] );
-				}
+				NON_DEBUG_PRINTF( "%s", pattern[(pno++) % 4] );
 			}
 
 			/* Failed, close */
@@ -507,12 +497,12 @@ int _tmain(int argc, _TCHAR* argv[])
 		if (wcscmp(argv[2], L"--debug") == 0)
 		{
 			inifile = argv[1];
-			debug = 1;
+			debug = true;
 		}
 		else if (wcscmp(argv[1], L"--debug") == 0)
 		{
 			inifile = argv[2];
-			debug = 1;
+			debug = true;
 		}
 		else
 		{
@@ -526,13 +516,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	/* Display if we're debugging */
-	if( debug )
-	{
-		printf( "Enabling debug mode!\n" );
-	}
-
+	DEBUG_PRINTF( "Enabling debug mode!\n" );
+	
 	/* Initialize menu */
-	Menu menu = Menu(inifile);
+	Menu menu = Menu(inifile, debug);
 
 	if( menu.NumberOfEntries() < 1 )
 	{

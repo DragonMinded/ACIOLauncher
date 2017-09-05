@@ -3,8 +3,11 @@
 
 #include "Menu.h"
 
-Menu::Menu(_TCHAR *inifile)
+Menu::Menu(_TCHAR *inifile, bool isDebugEnabled)
 {
+	/* Set up debug */
+	debug = isDebugEnabled;
+
 	/* Read settings */
 	settings = LoadSettings( inifile, &num_programs );
 
@@ -38,7 +41,7 @@ Menu::~Menu(void)
 void Menu::DisplayPrompt()
 {
 	/* Prompt the user */
-    system("cls");
+	if (!debug) { system("cls"); }
     printf( "Make a selection on the reader to boot a game.\n" );
 	printf( "%s will boot in %d seconds.\n\n", settings[0].name, TIMEOUT_SECONDS );
 }
