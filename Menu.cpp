@@ -2,12 +2,10 @@
 #include <windows.h>
 
 #include "Menu.h"
+#include "Debug.h"
 
-Menu::Menu(_TCHAR *inifile, bool isDebugEnabled)
+Menu::Menu(_TCHAR *inifile)
 {
-	/* Set up debug */
-	debug = isDebugEnabled;
-
 	/* Read settings */
 	settings = LoadSettings( inifile, &num_programs );
 
