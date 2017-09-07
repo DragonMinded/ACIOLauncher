@@ -32,7 +32,7 @@ ACIO::ACIO()
 {
 	/* Initialize readers first */
 	printf( "Initializing readers" );
-    serial = InitReaders(readerCount);
+    InitReaders(readerCount);
 	printf( "\n" );
 
 	/* Get version of all readers */
@@ -280,7 +280,7 @@ unsigned char ACIO::calcPacketChecksum( const unsigned char * const data )
     }
 }
 
-int ACIO::probeReader( HANDLE serial )
+int ACIO::probeReader( HANDLE hSerial )
 {
     const unsigned char packet_probe[] = {
 		0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
@@ -291,8 +291,8 @@ int ACIO::probeReader( HANDLE serial )
     unsigned char data[1024];
     DWORD length;
 
-	WriteFile( serial, packet_probe, sizeof( packet_probe ), &length, 0 );
-	ReadFile( serial, data, sizeof( data ), &length, 0 );
+	WriteFile( hSerial, packet_probe, sizeof( packet_probe ), &length, 0 );
+	ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 
 	if (length < MIN_PROBES_RECEIVED)
 	{
@@ -310,7 +310,7 @@ int ACIO::probeReader( HANDLE serial )
 	/* Clear out any additional init the reader sends */
 	while (true)
 	{
-		ReadFile( serial, data, sizeof( data ), &length, 0 );
+		ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 		if (length == 0)
 		{
 			return 1;
@@ -318,15 +318,15 @@ int ACIO::probeReader( HANDLE serial )
 	}
 }
 
-unsigned int ACIO::getReaderCount( HANDLE serial )
+unsigned int ACIO::getReaderCount( HANDLE hSerial )
 {
     const unsigned char count_probe[] = { 0xAA, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, };
     unsigned char data[1024];
     DWORD length;
 
-    WriteFile( serial, count_probe, sizeof( count_probe ), &length, 0 );
+    WriteFile( hSerial, count_probe, sizeof( count_probe ), &length, 0 );
     WAIT();
-    ReadFile( serial, data, sizeof( data ), &length, 0 );
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 
     unsigned int readerId;
     unsigned int command;
@@ -340,7 +340,7 @@ unsigned int ACIO::getReaderCount( HANDLE serial )
     return payload[0];
 }
 
-void ACIO::initReader( HANDLE serial, unsigned int id, int whichInit )
+void ACIO::initReader( HANDLE hSerial, unsigned int id, int whichInit )
 {
     unsigned int init_length[3] = { 7, 7, 8 };
     unsigned char init_probe[3][8] = { { 0xAA, (id + 1), 0x00, 0x03, 0x00, 0x00, 0xFF, },
@@ -352,12 +352,12 @@ void ACIO::initReader( HANDLE serial, unsigned int id, int whichInit )
     /* Fix up checksum since ID is variable */
     init_probe[whichInit][init_length[whichInit] - 1] = calcPacketChecksum( init_probe[whichInit] );
 
-    WriteFile( serial, init_probe[whichInit], init_length[whichInit], &length, 0 );
+    WriteFile( hSerial, init_probe[whichInit], init_length[whichInit], &length, 0 );
     WAIT();
-    ReadFile( serial, data, sizeof( data ), &length, 0 );
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 }
 
-const char * const ACIO::getReaderVersion( HANDLE serial, unsigned int id )
+const char * const ACIO::getReaderVersion( HANDLE hSerial, unsigned int id )
 {
     unsigned char version_probe[] = { 0xAA, (id + 1), 0x00, 0x02, 0x00, 0x00, 0xFF, };
     static char version[33] = { 0x00 };
@@ -367,9 +367,9 @@ const char * const ACIO::getReaderVersion( HANDLE serial, unsigned int id )
     /* Fix up checksum since ID is variable */
     version_probe[6] = calcPacketChecksum( version_probe );
 
-    WriteFile( serial, version_probe, sizeof( version_probe ), &length, 0 );
+    WriteFile( hSerial, version_probe, sizeof( version_probe ), &length, 0 );
     WAIT();
-    ReadFile( serial, data, sizeof( data ), &length, 0 );
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 
     unsigned int readerId;
     unsigned int command;
@@ -392,7 +392,7 @@ const char * const ACIO::getReaderVersion( HANDLE serial, unsigned int id )
     return (const char * const)version;
 }
 
-void ACIO::getReaderState( HANDLE serial, unsigned int id, card_state_t *state, unsigned int *keypresses, unsigned char *cardId )
+void ACIO::getReaderState( HANDLE hSerial, unsigned int id, card_state_t *state, unsigned int *keypresses, unsigned char *cardId )
 {
     unsigned char state_probe[] = { 0xAA, (id + 1), 0x01, 0x34, 0x00, 0x01, 0x10, 0xFF, };
     unsigned char data[1024];
@@ -404,9 +404,9 @@ void ACIO::getReaderState( HANDLE serial, unsigned int id, card_state_t *state, 
     /* Sane return */
     *keypresses = 0;
 
-    WriteFile( serial, state_probe, sizeof( state_probe ), &length, 0 );
+    WriteFile( hSerial, state_probe, sizeof( state_probe ), &length, 0 );
     WAIT();
-    ReadFile( serial, data, sizeof( data ), &length, 0 );
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 
     unsigned int readerId;
     unsigned int command;
@@ -443,7 +443,7 @@ void ACIO::getReaderState( HANDLE serial, unsigned int id, card_state_t *state, 
     }
 }
 
-void ACIO::setReaderState( HANDLE serial, unsigned int id, reader_state_t state )
+void ACIO::setReaderState( HANDLE hSerial, unsigned int id, reader_state_t state )
 {
     unsigned char state_request[] = { 0xAA, (id + 1), 0x01, 0x35, 0x00, 0x02, 0x10, 0xFF, 0xFF, };
     unsigned char data[1024];
@@ -473,12 +473,12 @@ void ACIO::setReaderState( HANDLE serial, unsigned int id, reader_state_t state 
     /* Fix up checksum since ID is variable */
     state_request[8] = calcPacketChecksum( state_request );
 
-    WriteFile( serial, state_request, sizeof( state_request ), &length, 0 );
+    WriteFile( hSerial, state_request, sizeof( state_request ), &length, 0 );
     WAIT();
-    ReadFile( serial, data, sizeof( data ), &length, 0 );
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 }
 
-void ACIO::requestCardId( HANDLE serial, unsigned int id )
+void ACIO::requestCardId( HANDLE hSerial, unsigned int id )
 {
     unsigned char id_request[] = { 0xAA, (id + 1), 0x01, 0x31, 0x00, 0x01, 0x10, 0xFF, };
     unsigned char data[1024];
@@ -487,20 +487,22 @@ void ACIO::requestCardId( HANDLE serial, unsigned int id )
     /* Fix up checksum since ID is variable */
     id_request[7] = calcPacketChecksum( id_request );
 
-    WriteFile( serial, id_request, sizeof( id_request ), &length, 0 );
+    WriteFile( hSerial, id_request, sizeof( id_request ), &length, 0 );
     WAIT();
-    ReadFile( serial, data, sizeof( data ), &length, 0 );
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 }
 
 HANDLE ACIO::InitReaders(unsigned int &readerCount)
 {
 	/* Walk serial chain, finding readers */
-    HANDLE serial = NULL;
-	const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
+    const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
 	const unsigned int baudrate[2] = { 57600, 9600 };
 	const char *pattern[4] = { "\b\b\b   ", "\b\b\b.", ".", "." };
 	unsigned int which = 3;
 	unsigned int pno = 0;
+
+	/* Init the global serial handle */
+	serial = NULL;
 
 	/* Put a space into location where we will be backspacing, for laziness */
 	NON_DEBUG_PRINTF( "   " );
