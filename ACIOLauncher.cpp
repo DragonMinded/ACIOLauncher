@@ -44,6 +44,9 @@
 /* Number of times to try initializing a reader by sending baud probe */
 #define INITIALIZATION_TRIES  16
 
+/* Number of return baud probes to receive before we consider ourselves initialized */
+#define MIN_PROBES_RECEIVED   5
+
 typedef enum
 {
     STATE_FRONT_SENSOR,
@@ -206,7 +209,7 @@ int probeReader( HANDLE serial )
 	WriteFile( serial, packet_probe, sizeof( packet_probe ), &length, 0 );
 	ReadFile( serial, data, sizeof( data ), &length, 0 );
 
-	if (length < sizeof(packet_probe))
+	if (length < MIN_PROBES_RECEIVED)
 	{
 		return 0;
 	}
