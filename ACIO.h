@@ -40,6 +40,12 @@ typedef enum
 	KEY_BLANK,
 } reader_keypress_t;
 
+typedef struct
+{
+	void *acio;
+	const _TCHAR *port;
+} thread_context_t;
+
 class ACIO
 {
 	public:
@@ -77,5 +83,13 @@ class ACIO
 		void getReaderState( HANDLE serial, unsigned int id, card_state_t *state, unsigned int *keypresses, unsigned char *cardId );
 		void setReaderState( HANDLE serial, unsigned int id, reader_state_t state );
 		void requestCardId( HANDLE serial, unsigned int id );
-		HANDLE InitReaders( unsigned int &readerCount );
+
+		void InitReaders();
+		void InitReader(const _TCHAR *comport);
+		static DWORD initThread(LPVOID* param)
+		{
+			thread_context_t *tc = (thread_context_t *)param;
+			((ACIO *)tc->acio)->InitReader(tc->port);
+			return 0;
+		};
 };

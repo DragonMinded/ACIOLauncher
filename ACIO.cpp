@@ -32,7 +32,7 @@ ACIO::ACIO()
 {
 	/* Initialize readers first */
 	printf( "Initializing readers" );
-    InitReaders(readerCount);
+    InitReaders();
 	printf( "\n" );
 
 	/* Get version of all readers */
@@ -492,13 +492,65 @@ void ACIO::requestCardId( HANDLE hSerial, unsigned int id )
     ReadFile( hSerial, data, sizeof( data ), &length, 0 );
 }
 
-HANDLE ACIO::InitReaders(unsigned int &readerCount)
+void ACIO::InitReader(const _TCHAR *comport)
+{
+	HANDLE hSerial = NULL;
+	const unsigned int baudrate[2] = { 57600, 9600 };
+
+	/* Loop until some thread claims the handle, and then exit */
+	while (serial == NULL)
+	{
+		for (unsigned int baud = 0; baud < 2; baud++)
+		{
+			DEBUG_PRINTF("Attempting to probe readers on %ls,%d\n", comport, baudrate[baud]);
+			hSerial = openSerial( comport, baudrate[baud] );
+
+			if (hSerial == INVALID_HANDLE_VALUE)
+			{
+				DEBUG_PRINTF("Couldn't open com port!\n");
+				WAIT();
+				continue;
+			}
+
+			/* Ensure we start fresh */
+			PurgeComm( hSerial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
+
+			/* Init */
+			for (int i = 0; i < INITIALIZATION_TRIES; i++)
+			{
+				if( probeReader( hSerial ) )
+				{
+					/* Get count */
+					unsigned int count = getReaderCount( hSerial );
+					if (count > 0)
+					{
+						DEBUG_PRINTF( "Saw %d readers!\n", count );
+						serial = hSerial;
+						readerCount = count;
+						return;
+					}
+				}
+
+				if (serial != NULL)
+				{
+					/* Exit early if we lost the race */
+					break;
+				}
+			}
+
+			/* Failed, close */
+			CloseHandle( hSerial );
+		}
+	}
+}
+
+void ACIO::InitReaders()
 {
 	/* Walk serial chain, finding readers */
     const _TCHAR *comport[4] = { L"COM1", L"COM2", L"COM3", L"COM4" };
-	const unsigned int baudrate[2] = { 57600, 9600 };
-	const char *pattern[4] = { "\b\b\b   ", "\b\b\b.", ".", "." };
-	unsigned int which = 3;
+	thread_context_t threadContexts[4];
+	HANDLE threadHandles[4];
+	const char *pattern[4] = { "\b\b\b   ", "\b\b\b.  ", "\b\b\b.. ", "\b\b\b..." };
 	unsigned int pno = 0;
 
 	/* Init the global serial handle */
@@ -508,54 +560,25 @@ HANDLE ACIO::InitReaders(unsigned int &readerCount)
 	NON_DEBUG_PRINTF( "   " );
 	DEBUG_PRINTF( "...\n" );
 
-	/* Try to open the reader indefinitely */
-	while( 1 )
+	/* Kick off threads for finding the right serial port */
+	for (unsigned int i = 0; i < 4; i++)
 	{
-		/* Try next reader */
-		which = (which + 1) % 4;
+		threadContexts[i].acio = this;
+		threadContexts[i].port = comport[i];
+		threadHandles[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)initThread, &threadContexts[i], 0, NULL);
+	}
 
-		for (unsigned int baud = 0; baud < 2; baud++)
-		{
-			NON_DEBUG_PRINTF( "%s", pattern[(pno++) % 4] );
-			DEBUG_PRINTF("Attempting to probe readers on %ls,%d\n", comport[which], baudrate[baud]);
-			serial = openSerial( comport[which], baudrate[baud] );
+	/* Try to open the reader indefinitely */
+	while( serial == NULL )
+	{
+		/* Wait for threads to find the readers */
+		NON_DEBUG_PRINTF( "%s", pattern[((pno++) / 10) % 4] );
+		WAIT();
+	}
 
-			if (serial == INVALID_HANDLE_VALUE)
-			{
-				DEBUG_PRINTF("Couldn't open com port!\n");
-				serial = NULL;
-				LONGWAIT();
-				continue;
-			}
-
-			/* Ensure we start fresh */
-			PurgeComm( serial, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR );
-
-			/* Init */
-			for (int i = 0; i < INITIALIZATION_TRIES; i++)
-			{
-				if( probeReader( serial ) )
-				{
-					/* Get count */
-					unsigned int count = getReaderCount( serial );
-					if (count > 0)
-					{
-						DEBUG_PRINTF( "Saw %d readers!\n", count );
-						readerCount = count;
-						return serial;
-					}
-				}
-
-				NON_DEBUG_PRINTF( "%s", pattern[(pno++) % 4] );
-			}
-
-			/* Failed, close */
-			CloseHandle( serial );
-		}
-
-		/* Failed to probe this port, try again on next one */
-		DEBUG_PRINTF("Failed to probe readers!\n");
-		serial = NULL;
-		LONGWAIT();
+	/* Join on threads */
+	for (unsigned int i = 0; i < 4; i++)
+	{
+		WaitForSingleObject(threadHandles[i], INFINITE);
 	}
 }
