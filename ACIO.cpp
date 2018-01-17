@@ -39,7 +39,29 @@ ACIO::ACIO()
     for( unsigned int x = 0; x < readerCount; x++ )
     {
 		/* Print out reader version in debug mode */
-		DEBUG_PRINTF( "Reader %d returned version %s\n", x + 1, getReaderVersion( serial, x ) );
+		const char * const version = getReaderVersion( serial, x );
+		char * typestring;
+		reader_type_t type = getReaderType( serial, x );
+
+		switch( type ) {
+			case TYPE_UNKNOWN:
+				typestring = "unknown";
+				break;
+			case TYPE_READER:
+				typestring = "reader";
+				break;
+			case TYPE_DISPENSER:
+				typestring = "dispenser";
+				break;
+			case TYPE_LEDBOARD:
+				typestring = "LED board";
+				break;
+			case TYPE_IOBOARD:
+				typestring = "IO board";
+				break;
+		}
+
+		DEBUG_PRINTF( "Reader %d is type %s version %s\n", x + 1, typestring, version );
 
         /* Walk init routine */
         initReader( serial, x, 0 );
@@ -392,6 +414,54 @@ const char * const ACIO::getReaderVersion( HANDLE hSerial, unsigned int id )
     return (const char * const)version;
 }
 
+reader_type_t ACIO::getReaderType( HANDLE hSerial, unsigned int id )
+{
+    unsigned char version_probe[] = { 0xAA, (id + 1), 0x00, 0x02, 0x00, 0x00, 0xFF, };
+    static char code[5] = { 0x00 };
+    unsigned char data[1024];
+    DWORD length;
+
+    /* Fix up checksum since ID is variable */
+    version_probe[6] = calcPacketChecksum( version_probe );
+
+    WriteFile( hSerial, version_probe, sizeof( version_probe ), &length, 0 );
+    WAIT();
+    ReadFile( hSerial, data, sizeof( data ), &length, 0 );
+
+    unsigned int readerId;
+    unsigned int command;
+    unsigned int len;
+    unsigned int checksum;
+    const unsigned char * const payload = getPacketData( &readerId, &command, &len, &checksum, data, length );
+
+    if( payload != NULL && len == 44 )
+    {
+        memcpy( code, &payload[8], 4 );
+        code[4] = 0x00;
+
+		if (strcmp(code, "ICCA") == 0) {
+			return TYPE_READER;
+		}
+		if (strcmp(code, "ICCB") == 0) {
+			return TYPE_READER;
+		}
+		if (strcmp(code, "HBHI") == 0) {
+			return TYPE_DISPENSER;
+		}
+		if (strcmp(code, "LEDB") == 0) {
+			return TYPE_LEDBOARD;
+		}
+		if (strcmp(code, "HDXS") == 0) {
+			return TYPE_LEDBOARD;
+		}
+		if (strcmp(code, "KFCA") == 0) {
+			return TYPE_IOBOARD;
+		}
+    }
+
+    return TYPE_UNKNOWN;
+}
+
 void ACIO::getReaderState( HANDLE hSerial, unsigned int id, card_state_t *state, unsigned int *keypresses, unsigned char *cardId )
 {
     unsigned char state_probe[] = { 0xAA, (id + 1), 0x01, 0x34, 0x00, 0x01, 0x10, 0xFF, };
@@ -524,10 +594,18 @@ void ACIO::InitReader(const _TCHAR *comport)
 					unsigned int count = getReaderCount( hSerial );
 					if (count > 0)
 					{
-						DEBUG_PRINTF( "Saw %d readers!\n", count );
-						serial = hSerial;
-						readerCount = count;
-						return;
+						/* Make sure at least one is a reader */
+						for( unsigned int x = 0; x < count; x++ )
+						{
+							/* Print out reader version in debug mode */
+							if (getReaderType( hSerial, x ) == TYPE_READER)
+							{
+								DEBUG_PRINTF( "Saw %d readers!\n", count );
+								serial = hSerial;
+								readerCount = count;
+								return;
+							}
+						}
 					}
 				}
 

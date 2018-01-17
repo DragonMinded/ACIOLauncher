@@ -40,6 +40,15 @@ typedef enum
 	KEY_BLANK,
 } reader_keypress_t;
 
+typedef enum
+{
+	TYPE_UNKNOWN,
+	TYPE_READER,
+	TYPE_DISPENSER,
+	TYPE_LEDBOARD,
+	TYPE_IOBOARD,
+} reader_type_t;
+
 typedef struct
 {
 	void *acio;
@@ -80,6 +89,7 @@ class ACIO
 		unsigned int getReaderCount( HANDLE serial );
 		void initReader( HANDLE serial, unsigned int id, int whichInit );
 		const char * const getReaderVersion( HANDLE serial, unsigned int id );
+		reader_type_t getReaderType( HANDLE serial, unsigned int id );
 		void getReaderState( HANDLE serial, unsigned int id, card_state_t *state, unsigned int *keypresses, unsigned char *cardId );
 		void setReaderState( HANDLE serial, unsigned int id, reader_state_t state );
 		void requestCardId( HANDLE serial, unsigned int id );
