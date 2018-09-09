@@ -445,6 +445,9 @@ reader_type_t ACIO::getReaderType( HANDLE hSerial, unsigned int id )
 		if (strcmp(code, "ICCB") == 0) {
 			return TYPE_READER;
 		}
+		if (strcmp(code, "ICCC") == 0) {
+		  return TYPE_READER;
+		}
 		if (strcmp(code, "HBHI") == 0) {
 			return TYPE_DISPENSER;
 		}
