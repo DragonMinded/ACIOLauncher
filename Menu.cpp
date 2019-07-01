@@ -205,13 +205,13 @@ launcher_program_t *Menu::LoadSettings( _TCHAR *ini_file, unsigned int *final_le
 				if (strncmp(buffer, "launch", 6) == 0) {
 					unsigned int loc = 6;
 					// Find equals sign after space
-					while (loc < buflen && buffer[loc] == ' ' || buffer[loc] == '\t' ) { loc++; }
+					while (loc < buflen && (buffer[loc] == ' ' || buffer[loc] == '\t')) { loc++; }
 					if (loc < buflen)
 					{
 						if (buffer[loc] == '=')
 						{
 							loc++;
-							while (loc < buflen && buffer[loc] == ' ' || buffer[loc] == '\t' ) { loc++; }
+							while (loc < buflen && (buffer[loc] == ' ' || buffer[loc] == '\t')) { loc++; }
 							if (loc < buflen)
 							{
 								char *launch = buffer + loc;
